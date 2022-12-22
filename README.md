@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Substrate Node Template
 
 [![Try on playground](https://img.shields.io/badge/Playground-Node_Template-brightgreen?logo=Parity%20Substrate)](https://docs.substrate.io/playground/) [![Matrix](https://img.shields.io/matrix/substrate-technical:matrix.org)](https://matrix.to/#/#substrate-technical:matrix.org)
@@ -230,6 +231,10 @@ by appending your own. A few useful ones are as follow.
 # Check whether the code is compilable
 ./scripts/docker_run.sh cargo check
 ```
+=======
+# substrate-node-template-v0.9.30
+为substrate-template提供存证模块
+>>>>>>> d46e092fce1b7385afde1d4263e9274fbca2fea5
 =======
 # substrate-node-template-v0.9.30
 为substrate-template提供存证模块
