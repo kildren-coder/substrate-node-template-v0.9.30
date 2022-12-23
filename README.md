@@ -1,241 +1,88 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-# Substrate Node Template
+# Substrate Node Template POE
 
-[![Try on playground](https://img.shields.io/badge/Playground-Node_Template-brightgreen?logo=Parity%20Substrate)](https://docs.substrate.io/playground/) [![Matrix](https://img.shields.io/matrix/substrate-technical:matrix.org)](https://matrix.to/#/#substrate-technical:matrix.org)
+本仓库为substrate入门课第五期作业.
 
-A fresh FRAME-based [Substrate](https://www.substrate.io/) node, ready for hacking :rocket:
+## 具体实现
 
-## Getting Started
+主要修改集中于[poe](https://github.com/kildren-coder/substrate-node-template-v0.9.30/tree/main/pallets/poe)模块中,其余的在[runtime](https://github.com/kildren-coder/substrate-node-template-v0.9.30/tree/main/runtime)模块中初始化,并在整个项目的`Cargo.toml`将[poe](https://github.com/kildren-coder/substrate-node-template-v0.9.30/tree/main/pallets/poe)引入.
 
-Follow the steps below to get started with the Node Template, or get it up and running right from
-your browser in just a few clicks using
-the [Substrate Playground](https://docs.substrate.io/playground/) :hammer_and_wrench:
+## BUG说明
 
-### Using Nix
+在`polkadot.js`中查询链上`POE`模块存储的值时,无法对作为`KEY`的Bytes数据做出反应.除了`0x`,其余输入均只能返回`<unknown>`.所以我们无法查询到单个凭证的信息.
 
-Install [nix](https://nixos.org/) and optionally [direnv](https://github.com/direnv/direnv) and
-[lorri](https://github.com/nix-community/lorri) for a fully plug and play experience for setting up
-the development environment. To get all the correct dependencies activate direnv `direnv allow` and
-lorri `lorri shell`.
+当输入为`0x`时:
 
-### Rust Setup
+![only_ox.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/only_0x.png)
 
-First, complete the [basic Rust setup instructions](./docs/rust-setup.md).
+此时前端页面会正确地根据输入值`0x`返回`encoded storage key`和`encoded key details`,查询结果也是`Option`的合法返回值:`None`.
 
-### Run
+可对于除此之外的输入,前端页面既不会返回`encoded storage key`和`encoded key details`的信息,查询结果也是不合法的`unknown`:
 
-Use Rust's native `cargo` command to build and launch the template node:
+![chain_state_bug.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/chain_state_bug.png)
 
-```sh
-cargo run --release -- --dev
-```
+好在我们可以通过关闭`included option`选项直接得到整个模块的存储信息.
 
-### Build
+![pallet_storage.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/pallet_storage.png)
 
-The `cargo run` command will perform an initial build. Use the following command to build the node
-without launching it:
+由于我们还未添加任何凭证，s所以此时链上是没有相应信息的.
 
-```sh
-cargo build --release
-```
+### 尝试过的修复
 
-### Embedded Docs
+对于这个BUG,由于不清楚Substrate前后端的联动,所以我有些漫无目的地尝试了修改:
+- 修改`StorageMap`的Hash方式,像是`Blake2_128`和`Identify`等.
+- 参照官方代码库中v0.9.30分支，修改`BoundedVec`的声明方式.
+- 将框架代码升级到最新版本
 
-Once the project has been built, the following command can be used to explore all parameters and
-subcommands:
+很可惜这些方法都没有效果.
 
-```sh
-./target/release/node-template -h
-```
+## 最终效果
 
-## Run
+### 创建凭证
 
-The provided `cargo run` command will launch a temporary node and its state will be discarded after
-you terminate the process. After the project has been built, there are other ways to launch the
-node.
+通过`poeModule`的`createClaim`方法创建凭证:
 
-### Single-Node Development Chain
+![creatw_claim.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/create_claim.png)
 
-This command will start the single-node development chain with non-persistent state:
+再在chain state中查询该模块的信息:
 
-```bash
-./target/release/node-template --dev
-```
+![create_claim_result.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/create_claim_result_1.png)
 
-Purge the development chain's state:
+可以看到已经生成了相应凭证,其持有地址为之前的申请人Alice的地址.
 
-```bash
-./target/release/node-template purge-chain --dev
-```
+### 转移凭证
 
-Start the development chain with detailed logging:
+先尝试转移不存在的凭证:
 
-```bash
-RUST_BACKTRACE=1 ./target/release/node-template -ldebug --dev
-```
+![shift_undefined_claim.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/shift_undefined_claim.png)
 
-> Development chain means that the state of our chain will be in a tmp folder while the nodes are
-> running. Also, **alice** account will be authority and sudo account as declared in the
-> [genesis state](https://github.com/substrate-developer-hub/substrate-node-template/blob/main/node/src/chain_spec.rs#L49).
-> At the same time the following accounts will be pre-funded:
-> - Alice
-> - Bob
-> - Alice//stash
-> - Bob//stash
+前端返回错误:
 
-In case of being interested in maintaining the chain' state between runs a base path must be added
-so the db can be stored in the provided folder instead of a temporal one. We could use this folder
-to store different chain databases, as a different folder will be created per different chain that
-is ran. The following commands shows how to use a newly created folder as our db base path.
+![shift_failed.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/shift_failed.png)
 
-```bash
-// Create a folder to use as the db base path
-$ mkdir my-chain-state
+将之前的凭证转移给Bob:
 
-// Use of that folder to store the chain state
-$ ./target/release/node-template --dev --base-path ./my-chain-state/
+![shift_claim.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/shift_claim.png)
 
-// Check the folder structure created inside the base path after running the chain
-$ ls ./my-chain-state
-chains
-$ ls ./my-chain-state/chains/
-dev
-$ ls ./my-chain-state/chains/dev
-db keystore network
-```
+查询可知凭证已转移给Bob:
 
+![shift_result.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/shift_result.png)
 
-### Connect with Polkadot-JS Apps Front-end
+### 撤销凭证
 
-Once the node template is running locally, you can connect it with **Polkadot-JS Apps** front-end
-to interact with your chain. [Click
-here](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944) connecting the Apps to your
-local node template.
+先尝试让Alice撤销凭证,不过由于凭证已转移,所以Alice不再持有该凭证,无权撤销:
 
-### Multi-Node Local Testnet
+![revoked_by_others.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/revoked_by_others.png)
 
-If you want to see the multi-node consensus algorithm in action, refer to our
-[Simulate a network tutorial](https://docs.substrate.io/tutorials/get-started/simulate-network/).
+再让Bob撤销凭证:
 
-## Template Structure
+![revoked_by_owner.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/revoked_by_owner.png)
 
-A Substrate project such as this consists of a number of components that are spread across a few
-directories.
+查询可知凭证已被撤销:
 
-### Node
+![revoked_result.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/revoked_result.png)
 
-A blockchain node is an application that allows users to participate in a blockchain network.
-Substrate-based blockchain nodes expose a number of capabilities:
+### 链上记录
 
-- Networking: Substrate nodes use the [`libp2p`](https://libp2p.io/) networking stack to allow the
-  nodes in the network to communicate with one another.
-- Consensus: Blockchains must have a way to come to
-  [consensus](https://docs.substrate.io/main-docs/fundamentals/consensus/) on the state of the
-  network. Substrate makes it possible to supply custom consensus engines and also ships with
-  several consensus mechanisms that have been built on top of
-  [Web3 Foundation research](https://research.web3.foundation/en/latest/polkadot/NPoS/index.html).
-- RPC Server: A remote procedure call (RPC) server is used to interact with Substrate nodes.
+所有成功执行的`extrinsics`都可以在`Network`的`Chain info`中查看,其按时间顺序记录了这些调用:
 
-There are several files in the `node` directory - take special note of the following:
-
-- [`chain_spec.rs`](./node/src/chain_spec.rs): A
-  [chain specification](https://docs.substrate.io/main-docs/build/chain-spec/) is a
-  source code file that defines a Substrate chain's initial (genesis) state. Chain specifications
-  are useful for development and testing, and critical when architecting the launch of a
-  production chain. Take note of the `development_config` and `testnet_genesis` functions, which
-  are used to define the genesis state for the local development chain configuration. These
-  functions identify some
-  [well-known accounts](https://docs.substrate.io/reference/command-line-tools/subkey/)
-  and use them to configure the blockchain's initial state.
-- [`service.rs`](./node/src/service.rs): This file defines the node implementation. Take note of
-  the libraries that this file imports and the names of the functions it invokes. In particular,
-  there are references to consensus-related topics, such as the
-  [block finalization and forks](https://docs.substrate.io/main-docs/fundamentals/consensus/#finalization-and-forks)
-  and other [consensus mechanisms](https://docs.substrate.io/main-docs/fundamentals/consensus/#default-consensus-models)
-  such as Aura for block authoring and GRANDPA for finality.
-
-After the node has been [built](#build), refer to the embedded documentation to learn more about the
-capabilities and configuration parameters that it exposes:
-
-```shell
-./target/release/node-template --help
-```
-
-### Runtime
-
-In Substrate, the terms
-"runtime" and "state transition function"
-are analogous - they refer to the core logic of the blockchain that is responsible for validating
-blocks and executing the state changes they define. The Substrate project in this repository uses
-[FRAME](https://docs.substrate.io/main-docs/fundamentals/runtime-intro/#frame) to construct a
-blockchain runtime. FRAME allows runtime developers to declare domain-specific logic in modules
-called "pallets". At the heart of FRAME is a helpful
-[macro language](https://docs.substrate.io/reference/frame-macros/) that makes it easy to
-create pallets and flexibly compose them to create blockchains that can address
-[a variety of needs](https://substrate.io/ecosystem/projects/).
-
-Review the [FRAME runtime implementation](./runtime/src/lib.rs) included in this template and note
-the following:
-
-- This file configures several pallets to include in the runtime. Each pallet configuration is
-  defined by a code block that begins with `impl $PALLET_NAME::Config for Runtime`.
-- The pallets are composed into a single runtime by way of the
-  [`construct_runtime!`](https://crates.parity.io/frame_support/macro.construct_runtime.html)
-  macro, which is part of the core
-  FRAME Support [system](https://docs.substrate.io/reference/frame-pallets/#system-pallets) library.
-
-### Pallets
-
-The runtime in this project is constructed using many FRAME pallets that ship with the
-[core Substrate repository](https://github.com/paritytech/substrate/tree/master/frame) and a
-template pallet that is [defined in the `pallets`](./pallets/template/src/lib.rs) directory.
-
-A FRAME pallet is compromised of a number of blockchain primitives:
-
-- Storage: FRAME defines a rich set of powerful
-  [storage abstractions](https://docs.substrate.io/main-docs/build/runtime-storage/) that makes
-  it easy to use Substrate's efficient key-value database to manage the evolving state of a
-  blockchain.
-- Dispatchables: FRAME pallets define special types of functions that can be invoked (dispatched)
-  from outside of the runtime in order to update its state.
-- Events: Substrate uses [events and errors](https://docs.substrate.io/main-docs/build/events-errors/)
-  to notify users of important changes in the runtime.
-- Errors: When a dispatchable fails, it returns an error.
-- Config: The `Config` configuration interface is used to define the types and parameters upon
-  which a FRAME pallet depends.
-
-### Run in Docker
-
-First, install [Docker](https://docs.docker.com/get-docker/) and
-[Docker Compose](https://docs.docker.com/compose/install/).
-
-Then run the following command to start a single node development chain.
-
-```bash
-./scripts/docker_run.sh
-```
-
-This command will firstly compile your code, and then start a local development network. You can
-also replace the default command
-(`cargo build --release && ./target/release/node-template --dev --ws-external`)
-by appending your own. A few useful ones are as follow.
-
-```bash
-# Run Substrate node without re-compiling
-./scripts/docker_run.sh ./target/release/node-template --dev --ws-external
-
-# Purge the local dev chain
-./scripts/docker_run.sh ./target/release/node-template purge-chain --dev
-
-# Check whether the code is compilable
-./scripts/docker_run.sh cargo check
-```
-=======
-# substrate-node-template-v0.9.30
-为substrate-template提供存证模块
->>>>>>> d46e092fce1b7385afde1d4263e9274fbca2fea5
-=======
-# substrate-node-template-v0.9.30
-为substrate-template提供存证模块
->>>>>>> d46e092fce1b7385afde1d4263e9274fbca2fea5
+![final_result.png](https://github.com/kildren-coder/substrate-node-template-v0.9.30/blob/main/img/final_result.png)
